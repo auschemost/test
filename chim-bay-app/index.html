@@ -40,11 +40,47 @@ body {
 #stage { display: block; border-radius: 16px; touch-action: none; box-shadow: 0 10px 40px rgba(0,0,0,.45); cursor: pointer; background: #7ccbf0; }
 #stage:focus-visible { outline: 3px solid #ffd23f; outline-offset: 3px; }
 .hint { margin: 0; font-size: 14px; font-weight: 600; color: var(--muted); text-align: center; }
+.lb { position: fixed; inset: 0; z-index: 10; background: rgba(8, 16, 24, .84); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto;
+  padding-inline: 16px; padding-top: calc(16px + env(safe-area-inset-top, 0px)); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+.lbBox { width: min(360px, 100%); background: #fff6d6; color: #1c3b4d; border: 3px solid #7a4b00; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; -webkit-user-select: text; user-select: text; }
+.lbBox h2 { margin: 0; font-size: 26px; color: #b3401a; text-align: center; text-wrap: balance; }
+.lbMsg { margin: 0; min-height: 1.4em; font-size: 15px; font-weight: 600; color: #5a4a2a; text-align: center; }
+.lbList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.lbList li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 10px; background: rgba(122, 75, 0, .08); font-size: 17px; font-weight: 600; }
+.lbList li.me { background: #ffd23f; }
+.lbList .rk { font-variant-numeric: tabular-nums; color: #7a4b00; }
+.lbList .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lbList .sc { font-variant-numeric: tabular-nums; font-weight: 700; }
+.lbForm { display: flex; flex-direction: column; gap: 6px; }
+.lbForm label { font-size: 14px; font-weight: 600; color: #5a4a2a; }
+.lbRow { display: flex; gap: 8px; }
+.lbRow input { flex: 1; min-width: 0; min-height: 44px; border-radius: 10px; border: 2px solid #7a4b00; background: #fff; color: #1c3b4d; padding: 8px 12px; font: 600 16px var(--font); -webkit-user-select: text; user-select: text; }
+.lbRow button, .lbClose { min-height: 44px; padding: 8px 18px; border-radius: 10px; border: 2px solid #7a4b00; background: #ffd23f; color: #1c3b4d; font: 700 16px var(--font); cursor: pointer; }
+.lbClose { background: #fff; }
+.lb button:focus-visible, .lb input:focus-visible { outline: 3px solid #1c3b4d; outline-offset: 2px; }
 </style>
 </head>
 <body>
 <canvas id="stage" tabindex="0" aria-label="Màn chơi Chim Bay. Chạm hoặc nhấn phím cách để chim vỗ cánh."></canvas>
 <p class="hint">Chạm vào màn hình, nhấn phím cách hoặc mũi tên lên để vỗ cánh. Bấm biểu tượng loa hoặc phím M để tắt nhạc.</p>
+
+<div class="lb" id="lb" hidden>
+  <div class="lbBox" role="dialog" aria-modal="true" aria-labelledby="lbTitle">
+    <h2 id="lbTitle">Bảng xếp hạng</h2>
+    <p class="lbMsg" id="lbMsg" role="status"></p>
+    <ol class="lbList" id="lbList"></ol>
+    <form class="lbForm" id="lbForm">
+      <label for="lbName">Biệt danh của bạn</label>
+      <div class="lbRow">
+        <input id="lbName" type="text" maxlength="12" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="2 đến 12 ký tự">
+        <button type="submit">Lưu</button>
+      </div>
+    </form>
+    <button class="lbClose" id="lbClose" type="button">Đóng</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
 
 <script>
 (function () {
@@ -52,7 +88,7 @@ body {
   var cv = document.getElementById("stage"), ctx = cv.getContext("2d");
   var GRAV = 1500, FLAP = -440, SPEED = 138, GAP = 144, PIPE_W = 64, SPACING = 200;
   var BIRD_X = 96, R = 15;
-  var state = "ready", score = 0, best = 0, overAt = 0, shake = 0;
+  var state = "ready", score = 0, best = 0, overAt = 0, shake = 0, justDied = false;
   var bird, pipes, groundX = 0, clouds = [], t = 0;
 
   try { best = parseInt(localStorage.getItem("chimbay-best"), 10) || 0; } catch (e) {}
@@ -129,25 +165,118 @@ body {
     return { unlock: unlock, toggle: toggle, isMuted: function () { return muted; } };
   })();
 
+  // Optional leaderboard. Scores go to Supabase through two server functions (start_run, submit_score)
+  // that reject scores which could not have been reached in the time elapsed. Fill in config.js to turn it on.
+  var LBC = window.CHIMBAY_LEADERBOARD || {};
+  var LB_ON = !!(LBC.url && LBC.key);
+  var lbName = "", lbRunP = null, lbPending = null, lbStatus = "";
+  var lbEl = { box: document.getElementById("lb"), msg: document.getElementById("lbMsg"), list: document.getElementById("lbList"),
+    form: document.getElementById("lbForm"), name: document.getElementById("lbName"), close: document.getElementById("lbClose") };
+  try { lbName = localStorage.getItem("chimbay-name") || ""; } catch (e) {}
+  if (LB_ON) document.querySelector(".hint").textContent += " Bấm cúp để xem bảng xếp hạng.";
+
+  function lbFetch(path, init) {
+    var ctrl = new AbortController(), to = setTimeout(function () { ctrl.abort(); }, 8000);
+    init = init || {}; init.signal = ctrl.signal;
+    init.headers = { apikey: LBC.key, "Content-Type": "application/json" };
+    // Older Supabase keys are JWTs and are also sent as a bearer token; newer "publishable" keys go in apikey only.
+    if (/^eyJ/.test(LBC.key)) init.headers.Authorization = "Bearer " + LBC.key;
+    return fetch(LBC.url.replace(/\/+$/, "") + path, init).then(function (res) {
+      clearTimeout(to);
+      return res.text().then(function (txt) {
+        var data = null; try { data = txt ? JSON.parse(txt) : null; } catch (e) {}
+        if (!res.ok) throw new Error((data && data.message) || ("HTTP " + res.status));
+        return data;
+      });
+    }, function (e) { clearTimeout(to); throw e; });
+  }
+  function lbStart() {
+    lbPending = null; lbStatus = "";
+    lbRunP = LB_ON ? lbFetch("/rest/v1/rpc/start_run", { method: "POST", body: "{}" }).catch(function () { return null; }) : null;
+  }
+  function lbSubmit(runP, name, sc) {
+    lbStatus = "Đang gửi điểm…";
+    return Promise.resolve(runP).then(function (id) {
+      if (!id) throw new Error("no run");
+      return lbFetch("/rest/v1/rpc/submit_score", { method: "POST", body: JSON.stringify({ p_run: id, p_name: name, p_score: sc }) });
+    }).then(function () { lbStatus = "Đã gửi lên bảng xếp hạng"; }, function (e) {
+      lbStatus = /plausible/.test(String(e && e.message)) ? "Điểm bị từ chối vì không hợp lý" : "Chưa gửi được điểm";
+    });
+  }
+  function lbOnDie() {
+    if (!LB_ON || score <= 0) { lbStatus = ""; return; }
+    var sc = score, runP = lbRunP;
+    if (!lbName) {
+      lbPending = { runP: runP, score: sc };
+      lbStatus = "Bấm cúp để nhập biệt danh";
+      setTimeout(function () { if (state === "over" && lbPending && lbPending.score === sc) lbOpen("name"); }, 600);
+    } else { lbSubmit(runP, lbName, sc); }
+  }
+  function lbIsOpen() { return !lbEl.box.hidden; }
+  function lbRender(rows) {
+    lbEl.list.textContent = "";
+    rows.forEach(function (r, i) {
+      var li = document.createElement("li"); if (lbName && r.name === lbName) li.className = "me";
+      [["rk", String(i + 1)], ["nm", r.name], ["sc", String(r.score)]].forEach(function (c) {
+        var sp = document.createElement("span"); sp.className = c[0]; sp.textContent = c[1]; li.appendChild(sp);
+      });
+      lbEl.list.appendChild(li);
+    });
+  }
+  function lbRefresh() {
+    lbEl.msg.textContent = "Đang tải…";
+    return lbFetch("/rest/v1/scores?select=name,score&order=score.desc,updated_at.asc&limit=10").then(function (rows) {
+      rows = Array.isArray(rows) ? rows : [];
+      lbRender(rows);
+      lbEl.msg.textContent = rows.length ? "" : "Chưa có ai trên bảng. Hãy là người đầu tiên!";
+    }, function () { lbEl.list.textContent = ""; lbEl.msg.textContent = "Không tải được bảng xếp hạng. Kiểm tra mạng rồi mở lại."; });
+  }
+  function lbOpen(mode) {
+    if (!LB_ON) return;
+    lbEl.name.value = lbName; lbEl.box.hidden = false;
+    lbRefresh().then(function () {
+      if (mode === "name" && lbPending) lbEl.msg.textContent = "Nhập biệt danh để điểm " + lbPending.score + " lên bảng.";
+    });
+    if (mode === "name") lbEl.name.focus(); else lbEl.close.focus();
+  }
+  function lbClose() { lbEl.box.hidden = true; }
+  lbEl.close.addEventListener("click", lbClose);
+  lbEl.box.addEventListener("pointerdown", function (e) { if (e.target === lbEl.box) lbClose(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && lbIsOpen()) lbClose(); });
+  lbEl.form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var n = lbEl.name.value.replace(/\s+/g, " ").trim(), len = Array.from(n).length;
+    if (len < 2 || len > 12) { lbEl.msg.textContent = "Biệt danh cần từ 2 đến 12 ký tự."; return; }
+    lbName = n; try { localStorage.setItem("chimbay-name", n); } catch (err) {}
+    if (lbPending) { var p = lbPending; lbPending = null; lbSubmit(p.runP, n, p.score).then(lbRefresh); }
+    else { lbRefresh().then(function () { lbEl.msg.textContent = "Đã lưu biệt danh."; }); }
+  });
+
   function flap() {
     var now = performance.now();
-    if (state === "ready") { state = "play"; bird.vy = FLAP; }
+    if (state === "ready") { state = "play"; bird.vy = FLAP; lbStart(); }
     else if (state === "play") { bird.vy = FLAP; }
     else if (state === "over" && now - overAt > 450) { reset(); state = "ready"; }
   }
-  function onMuteButton(e) {
-    if (state === "play") return false;
+  function hitButton(e) {
+    if (state === "play") return null;
     var r = cv.getBoundingClientRect();
     var lx = (e.clientX - r.left) * W / r.width, ly = (e.clientY - r.top) * H / r.height;
-    return lx > W - 64 && ly < 64;
+    if (ly >= 64) return null;
+    if (lx > W - 64) return "mute";
+    if (LB_ON && lx < 64) return "trophy";
+    return null;
   }
   cv.addEventListener("pointerdown", function (e) {
     e.preventDefault();
-    if (onMuteButton(e)) { music.toggle(); return; }
+    var hit = hitButton(e);
+    if (hit === "mute") { music.toggle(); return; }
+    if (hit === "trophy") { music.unlock(); lbOpen("view"); return; }
     music.unlock(); flap();
   });
   cv.addEventListener("pointerup", function () { music.unlock(); });
   window.addEventListener("keydown", function (e) {
+    if (lbIsOpen()) return;
     if (e.code === "KeyM") { if (!e.repeat) music.toggle(); return; }
     if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") { e.preventDefault(); music.unlock(); if (!e.repeat) flap(); }
   });
@@ -158,9 +287,15 @@ body {
     pipes.push({ x: W + 10, top: min + Math.random() * (max - min), scored: false });
   }
 
+  // die() may be reached twice in one frame (pipe and ground). It only flags the end of the run;
+  // the score is settled once per run in frame(), after update() has finished adding points.
   function die() {
-    state = "over"; overAt = performance.now(); shake = 0.25;
+    if (state === "over") return;
+    state = "over"; overAt = performance.now(); shake = 0.25; justDied = true;
+  }
+  function settleRun() {
     if (score > best) { best = score; try { localStorage.setItem("chimbay-best", String(best)); } catch (e) {} }
+    lbOnDie();
   }
 
   function hitsPipe(p) {
@@ -183,6 +318,7 @@ body {
       bird.rot = Math.max(-0.45, Math.min(1.3, bird.vy / 520));
       if (!pipes.length || pipes[pipes.length - 1].x < W - SPACING) spawn();
       for (var i = pipes.length - 1; i >= 0; i--) {
+        if (state !== "play") break;
         var p = pipes[i]; p.x -= SPEED * dt;
         if (!p.scored && p.x + PIPE_W < BIRD_X - R) { p.scored = true; score++; }
         if (p.x + PIPE_W < -4) pipes.splice(i, 1);
@@ -255,6 +391,17 @@ body {
     ctx.restore();
   }
 
+  function drawTrophy(cx, cy) {
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.fillStyle = "rgba(28,59,77,.78)"; ctx.beginPath(); ctx.arc(0, 0, 20, 0, 7); ctx.fill();
+    ctx.fillStyle = "#ffd23f"; ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(-8, -10); ctx.lineTo(8, -10); ctx.lineTo(8, -4); ctx.quadraticCurveTo(8, 4, 0, 4); ctx.quadraticCurveTo(-8, 4, -8, -4); ctx.closePath(); ctx.fill();
+    ctx.fillRect(-2, 4, 4, 5); ctx.fillRect(-7, 9, 14, 3);
+    ctx.beginPath(); ctx.arc(-8, -5, 4, Math.PI * 0.5, Math.PI * 1.5); ctx.stroke();
+    ctx.beginPath(); ctx.arc(8, -5, 4, -Math.PI * 0.5, Math.PI * 0.5); ctx.stroke();
+    ctx.restore();
+  }
+
   function draw() {
     ctx.save();
     if (shake > 0) ctx.translate((Math.random() - .5) * 8 * shake * 4, (Math.random() - .5) * 8 * shake * 4);
@@ -276,11 +423,13 @@ body {
     if (state === "ready") {
       outline("Chim Bay", W / 2, 150, 46, "#ffd23f");
       outline("Chạm để bắt đầu", W / 2, 380, 24);
-      if (best) { ctx.font = "600 16px " + getComputedStyle(document.body).fontFamily; ctx.fillStyle = "#1c3b4d"; ctx.textAlign = "center"; ctx.fillText("Kỷ lục: " + best, W / 2, 410); }
+      ctx.font = "600 16px " + getComputedStyle(document.body).fontFamily; ctx.fillStyle = "#1c3b4d"; ctx.textAlign = "center";
+      if (best) ctx.fillText("Kỷ lục: " + best, W / 2, 410);
+      if (LB_ON && lbName) ctx.fillText("Biệt danh: " + lbName, W / 2, 436);
     }
     if (state === "over") {
       ctx.fillStyle = "#fff6d6"; ctx.strokeStyle = "#7a4b00"; ctx.lineWidth = 3;
-      var bx = 50, by = 200, bw = W - 100, bh = 190, r = 14;
+      var bx = 50, by = 200, bw = W - 100, bh = LB_ON && score > 0 ? 214 : 190, r = 14;
       ctx.beginPath(); ctx.moveTo(bx + r, by); ctx.arcTo(bx + bw, by, bx + bw, by + bh, r); ctx.arcTo(bx + bw, by + bh, bx, by + bh, r); ctx.arcTo(bx, by + bh, bx, by, r); ctx.arcTo(bx, by, bx + bw, by, r); ctx.closePath(); ctx.fill(); ctx.stroke();
       var ff = getComputedStyle(document.body).fontFamily;
       ctx.textAlign = "center"; ctx.fillStyle = "#b3401a"; ctx.font = "700 30px " + ff; ctx.fillText("Hết lượt", W / 2, by + 44);
@@ -288,8 +437,10 @@ body {
       ctx.fillStyle = "#1c3b4d"; ctx.font = "700 40px " + ff; ctx.fillText(String(score), W / 2 - 60, by + 124); ctx.fillText(String(best), W / 2 + 60, by + 124);
       ctx.fillStyle = "#5a4a2a"; ctx.font = "600 15px " + ff;
       ctx.fillText(score > 0 && score === best ? "Kỷ lục mới!" : "Chạm để chơi lại", W / 2, by + 168);
+      if (LB_ON && score > 0 && lbStatus) { ctx.fillStyle = "#7a4b00"; ctx.font = "600 14px " + ff; ctx.fillText(lbStatus, W / 2, by + 196); }
     }
     if (state !== "play") drawSpeaker(W - 40, 36);
+    if (LB_ON && state !== "play") drawTrophy(40, 36);
     ctx.restore();
   }
 
@@ -297,7 +448,9 @@ body {
   function frame(now) {
     if (!last) last = now;
     var dt = Math.min(0.033, (now - last) / 1000); last = now;
-    update(dt); draw();
+    update(dt);
+    if (justDied) { justDied = false; settleRun(); }
+    draw();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
