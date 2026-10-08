@@ -20,7 +20,7 @@ body {
 }
 #stage { display: block; border-radius: 16px; touch-action: none; box-shadow: 0 10px 40px rgba(0,0,0,.45); cursor: pointer; background: #7ccbf0; }
 #stage:focus-visible { outline: 3px solid #ffd23f; outline-offset: 3px; }
-.hint { margin: 0; font-size: 14px; color: var(--muted); text-align: center; }
+.hint { margin: 0; font-size: 14px; font-weight: 600; color: var(--muted); text-align: center; }
 </style>
 
 <canvas id="stage" tabindex="0" aria-label="Màn chơi Chim Bay. Chạm hoặc nhấn phím cách để chim vỗ cánh."></canvas>
@@ -62,7 +62,7 @@ body {
     else if (state === "play") { bird.vy = FLAP; }
     else if (state === "over" && now - overAt > 450) { reset(); state = "ready"; }
   }
-  cv.addEventListener("pointerdown", function (e) { e.preventDefault(); cv.focus({ preventScroll: true }); flap(); });
+  cv.addEventListener("pointerdown", function (e) { e.preventDefault(); flap(); });
   window.addEventListener("keydown", function (e) {
     if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") { e.preventDefault(); if (!e.repeat) flap(); }
   });
