@@ -1,0 +1,206 @@
+<title>Chim Bay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&display=swap">
+<style>
+/* One-screen game: a 360x640 canvas scaled to fit the viewport, centred on a deep night-blue ground. Single look by choice. */
+:root {
+  --ground: #0e2433;
+  --ink: #eaf4fa;
+  --muted: #8fb0c4;
+  --font: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--ground); color: var(--ink); font-family: var(--font);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding-inline: 16px; padding-block: 10px; overflow: hidden;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation;
+}
+#stage { display: block; border-radius: 16px; touch-action: none; box-shadow: 0 10px 40px rgba(0,0,0,.45); cursor: pointer; background: #7ccbf0; }
+#stage:focus-visible { outline: 3px solid #ffd23f; outline-offset: 3px; }
+.hint { margin: 0; font-size: 14px; color: var(--muted); text-align: center; }
+</style>
+
+<canvas id="stage" tabindex="0" aria-label="Màn chơi Chim Bay. Chạm hoặc nhấn phím cách để chim vỗ cánh."></canvas>
+<p class="hint">Chạm vào màn hình, nhấn phím cách hoặc mũi tên lên để vỗ cánh</p>
+
+<script>
+(function () {
+  var W = 360, H = 640, GROUND = 96;
+  var cv = document.getElementById("stage"), ctx = cv.getContext("2d");
+  var GRAV = 1500, FLAP = -440, SPEED = 150, GAP = 156, PIPE_W = 64, SPACING = 210;
+  var BIRD_X = 96, R = 15;
+  var state = "ready", score = 0, best = 0, overAt = 0, shake = 0;
+  var bird, pipes, groundX = 0, clouds = [], t = 0;
+
+  try { best = parseInt(localStorage.getItem("chimbay-best"), 10) || 0; } catch (e) {}
+
+  for (var i = 0; i < 5; i++) clouds.push({ x: Math.random() * W, y: 40 + Math.random() * 260, s: 0.6 + Math.random() * 0.8, v: 6 + Math.random() * 10 });
+
+  function reset() {
+    bird = { y: H / 2 - 40, vy: 0, rot: 0 };
+    pipes = []; score = 0; groundX = 0;
+  }
+  reset();
+
+  function fit() {
+    var availW = window.innerWidth - 32, availH = window.innerHeight - 64;
+    var s = Math.min(availW / W, availH / H, 1.6);
+    var cssW = Math.max(200, Math.floor(W * s)), cssH = Math.floor(cssW * H / W);
+    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    cv.style.width = cssW + "px"; cv.style.height = cssH + "px";
+    cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+    ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
+  }
+  window.addEventListener("resize", fit); fit();
+
+  function flap() {
+    var now = performance.now();
+    if (state === "ready") { state = "play"; bird.vy = FLAP; }
+    else if (state === "play") { bird.vy = FLAP; }
+    else if (state === "over" && now - overAt > 450) { reset(); state = "ready"; }
+  }
+  cv.addEventListener("pointerdown", function (e) { e.preventDefault(); cv.focus({ preventScroll: true }); flap(); });
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") { e.preventDefault(); if (!e.repeat) flap(); }
+  });
+  document.addEventListener("visibilitychange", function () { last = 0; });
+
+  function spawn() {
+    var min = 70, max = H - GROUND - GAP - 70;
+    pipes.push({ x: W + 10, top: min + Math.random() * (max - min), scored: false });
+  }
+
+  function die() {
+    state = "over"; overAt = performance.now(); shake = 0.25;
+    if (score > best) { best = score; try { localStorage.setItem("chimbay-best", String(best)); } catch (e) {} }
+  }
+
+  function hitsPipe(p) {
+    if (BIRD_X + R < p.x || BIRD_X - R > p.x + PIPE_W) return false;
+    return bird.y - R < p.top || bird.y + R > p.top + GAP;
+  }
+
+  function update(dt) {
+    t += dt;
+    clouds.forEach(function (c) { c.x -= c.v * dt; if (c.x < -80) { c.x = W + 40; c.y = 40 + Math.random() * 260; } });
+    if (shake > 0) shake = Math.max(0, shake - dt);
+
+    if (state === "ready") {
+      bird.y = H / 2 - 40 + Math.sin(t * 4) * 8; bird.rot = 0;
+      groundX = (groundX + SPEED * dt) % 24; return;
+    }
+    if (state === "play") {
+      groundX = (groundX + SPEED * dt) % 24;
+      bird.vy += GRAV * dt; bird.y += bird.vy * dt;
+      bird.rot = Math.max(-0.45, Math.min(1.3, bird.vy / 520));
+      if (!pipes.length || pipes[pipes.length - 1].x < W - SPACING) spawn();
+      for (var i = pipes.length - 1; i >= 0; i--) {
+        var p = pipes[i]; p.x -= SPEED * dt;
+        if (!p.scored && p.x + PIPE_W < BIRD_X - R) { p.scored = true; score++; }
+        if (p.x + PIPE_W < -4) pipes.splice(i, 1);
+        else if (hitsPipe(p)) { die(); }
+      }
+      if (bird.y - R < 0) { bird.y = R; bird.vy = 0; }
+      if (bird.y + R > H - GROUND) { bird.y = H - GROUND - R; die(); }
+    } else if (state === "over") {
+      if (bird.y + R < H - GROUND) { bird.vy += GRAV * dt; bird.y += bird.vy * dt; bird.rot = Math.min(1.5, bird.rot + 6 * dt); if (bird.y + R > H - GROUND) bird.y = H - GROUND - R; }
+    }
+  }
+
+  function cloud(c) {
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 18 * c.s, 0, 7); ctx.arc(c.x + 20 * c.s, c.y - 8 * c.s, 22 * c.s, 0, 7);
+    ctx.arc(c.x + 44 * c.s, c.y, 17 * c.s, 0, 7); ctx.rect(c.x, c.y, 44 * c.s, 17 * c.s);
+    ctx.fill();
+  }
+
+  function pipe(p) {
+    var capH = 26, capX = p.x - 4, capW = PIPE_W + 8;
+    function body(y, h) {
+      var g = ctx.createLinearGradient(p.x, 0, p.x + PIPE_W, 0);
+      g.addColorStop(0, "#4aa83a"); g.addColorStop(.35, "#8fe05a"); g.addColorStop(1, "#3d8f31");
+      ctx.fillStyle = g; ctx.fillRect(p.x, y, PIPE_W, h);
+      ctx.strokeStyle = "#285c20"; ctx.lineWidth = 2.5; ctx.strokeRect(p.x, y, PIPE_W, h);
+    }
+    function cap(y) {
+      var g = ctx.createLinearGradient(capX, 0, capX + capW, 0);
+      g.addColorStop(0, "#4aa83a"); g.addColorStop(.35, "#8fe05a"); g.addColorStop(1, "#3d8f31");
+      ctx.fillStyle = g; ctx.fillRect(capX, y, capW, capH);
+      ctx.strokeStyle = "#285c20"; ctx.lineWidth = 2.5; ctx.strokeRect(capX, y, capW, capH);
+    }
+    body(-4, p.top - capH + 4); cap(p.top - capH);
+    var bottom = p.top + GAP;
+    body(bottom + capH, H - GROUND - bottom - capH + 4); cap(bottom);
+  }
+
+  function drawBird() {
+    ctx.save(); ctx.translate(BIRD_X, bird.y); ctx.rotate(bird.rot);
+    var wing = state === "over" ? 0.2 : Math.sin(t * 22) * 0.5;
+    ctx.fillStyle = "#ffd23f"; ctx.strokeStyle = "#7a4b00"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(0, 0, R + 3, R, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ff8a3d"; ctx.beginPath(); ctx.moveTo(R, -2); ctx.lineTo(R + 11, 2); ctx.lineTo(R, 7); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(7, -6, 6, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(9, -6, 2.4, 0, 7); ctx.fill();
+    ctx.save(); ctx.translate(-5, 3); ctx.rotate(wing);
+    ctx.fillStyle = "#ffb703"; ctx.beginPath(); ctx.ellipse(0, 0, 9, 6, 0, 0, 7); ctx.fill(); ctx.stroke(); ctx.restore();
+    ctx.restore();
+  }
+
+  function outline(text, x, y, size, fill) {
+    ctx.font = "700 " + size + "px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center"; ctx.lineJoin = "round";
+    ctx.lineWidth = Math.max(4, size / 6); ctx.strokeStyle = "#1c3b4d"; ctx.strokeText(text, x, y);
+    ctx.fillStyle = fill || "#fff"; ctx.fillText(text, x, y);
+  }
+
+  function draw() {
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - .5) * 8 * shake * 4, (Math.random() - .5) * 8 * shake * 4);
+    var sky = ctx.createLinearGradient(0, 0, 0, H - GROUND);
+    sky.addColorStop(0, "#5ab8ea"); sky.addColorStop(1, "#bfe8f7");
+    ctx.fillStyle = sky; ctx.fillRect(-10, -10, W + 20, H);
+    clouds.forEach(cloud);
+    pipes.forEach(pipe);
+
+    ctx.fillStyle = "#ded895"; ctx.fillRect(-10, H - GROUND, W + 20, GROUND + 10);
+    ctx.fillStyle = "#73bf2e"; ctx.fillRect(-10, H - GROUND, W + 20, 16);
+    ctx.fillStyle = "#5aa11f";
+    for (var x = -24 + (-groundX % 24); x < W + 24; x += 24) { ctx.beginPath(); ctx.moveTo(x, H - GROUND); ctx.lineTo(x + 12, H - GROUND); ctx.lineTo(x + 24, H - GROUND + 16); ctx.lineTo(x + 12, H - GROUND + 16); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle = "#2f5d14"; ctx.fillRect(-10, H - GROUND, W + 20, 3);
+
+    drawBird();
+
+    if (state !== "ready") outline(String(score), W / 2, 92, 52);
+    if (state === "ready") {
+      outline("Chim Bay", W / 2, 150, 46, "#ffd23f");
+      outline("Chạm để bắt đầu", W / 2, 380, 24);
+      if (best) { ctx.font = "600 16px " + getComputedStyle(document.body).fontFamily; ctx.fillStyle = "#1c3b4d"; ctx.textAlign = "center"; ctx.fillText("Kỷ lục: " + best, W / 2, 410); }
+    }
+    if (state === "over") {
+      ctx.fillStyle = "#fff6d6"; ctx.strokeStyle = "#7a4b00"; ctx.lineWidth = 3;
+      var bx = 50, by = 200, bw = W - 100, bh = 190, r = 14;
+      ctx.beginPath(); ctx.moveTo(bx + r, by); ctx.arcTo(bx + bw, by, bx + bw, by + bh, r); ctx.arcTo(bx + bw, by + bh, bx, by + bh, r); ctx.arcTo(bx, by + bh, bx, by, r); ctx.arcTo(bx, by, bx + bw, by, r); ctx.closePath(); ctx.fill(); ctx.stroke();
+      var ff = getComputedStyle(document.body).fontFamily;
+      ctx.textAlign = "center"; ctx.fillStyle = "#b3401a"; ctx.font = "700 30px " + ff; ctx.fillText("Hết lượt", W / 2, by + 44);
+      ctx.fillStyle = "#5a4a2a"; ctx.font = "600 15px " + ff; ctx.fillText("ĐIỂM", W / 2 - 60, by + 82); ctx.fillText("KỶ LỤC", W / 2 + 60, by + 82);
+      ctx.fillStyle = "#1c3b4d"; ctx.font = "700 40px " + ff; ctx.fillText(String(score), W / 2 - 60, by + 124); ctx.fillText(String(best), W / 2 + 60, by + 124);
+      ctx.fillStyle = "#5a4a2a"; ctx.font = "600 15px " + ff;
+      ctx.fillText(score > 0 && score === best ? "Kỷ lục mới!" : "Chạm để chơi lại", W / 2, by + 168);
+    }
+    ctx.restore();
+  }
+
+  var last = 0;
+  function frame(now) {
+    if (!last) last = now;
+    var dt = Math.min(0.033, (now - last) / 1000); last = now;
+    update(dt); draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
