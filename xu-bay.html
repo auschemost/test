@@ -34,7 +34,7 @@ body {
   var BIRD_X = 96;
   // Xù is a longer sprite than the old bird. Collisions use two circles (chest and head); the cape, tail,
   // back legs and muzzle are drawn but do not collide, so the difficulty stays close to the old single-circle bird.
-  var XU = 0.8; // overall size of Xù: the picture and the collision area scale together (1 = the full size)
+  var XU = 0.9; // overall size of Xù: the picture and the collision area scale together (1 = the full size)
   var HIT = [{ dx: -6, dy: -1, r: 10.5 }, { dx: 13, dy: 1, r: 11.5 }].map(function (c) { return { dx: c.dx * XU, dy: c.dy * XU, r: c.r * XU }; });
   var REAR = 18 * XU, FRONT = 26 * XU, TOPR = 15 * XU, BOTR = 19 * XU;
   // The frames cover a 134 x 112 area; (96, 48) in that area is the point the sprite is drawn around.
