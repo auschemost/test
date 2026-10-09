@@ -1,4 +1,4 @@
-<title>Chim Bay</title>
+<title>Xù Bay</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&display=swap">
@@ -23,7 +23,7 @@ body {
 .hint { margin: 0; font-size: 14px; font-weight: 600; color: var(--muted); text-align: center; }
 </style>
 
-<canvas id="stage" tabindex="0" aria-label="Màn chơi Chim Bay. Chạm hoặc nhấn phím cách để chim vỗ cánh."></canvas>
+<canvas id="stage" tabindex="0" aria-label="Màn chơi Xù Bay. Chạm hoặc nhấn phím cách để Xù vỗ cánh."></canvas>
 <p class="hint">Chạm vào màn hình, nhấn phím cách hoặc mũi tên lên để vỗ cánh. Bấm biểu tượng loa hoặc phím M để tắt nhạc.</p>
 
 <script>
@@ -274,7 +274,7 @@ body {
 
     if (state !== "ready") outline(String(score), W / 2, 92, 52);
     if (state === "ready") {
-      outline("Chim Bay", W / 2, 150, 46, "#ffd23f");
+      outline("Xù Bay", W / 2, 150, 52, "#ffd23f");
       outline("Chạm để bắt đầu", W / 2, 380, 24);
       if (best) { ctx.font = "600 16px " + getComputedStyle(document.body).fontFamily; ctx.fillStyle = "#1c3b4d"; ctx.textAlign = "center"; ctx.fillText("Kỷ lục: " + best, W / 2, 410); }
     }
