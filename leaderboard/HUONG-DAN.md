@@ -35,3 +35,5 @@ Mở link game, chơi một lượt, nhập biệt danh khi game hỏi, rồi b�
 - Nếu trước đó bạn đã chạy bản `setup.sql` cũ (có kiểm tra thời gian), chạy lại file mới này sẽ tự gỡ phần cũ.
 - Xoá dòng không phù hợp: vào **Table Editor**, bảng `scores`, xoá dòng đó.
 - Sau khi sửa `config.js`, có thể cần mở lại game hai lần mới thấy thay đổi, vì trình duyệt lưu bản cũ để chạy ngoại tuyến.
+- File độc lập `xubay.html` cũng có bảng xếp hạng, dùng chung một bảng điểm với ứng dụng. Địa chỉ và khoá nằm ngay trong khối `window.CHIMBAY_LEADERBOARD` gần đầu file. Nếu đổi sang dự án Supabase khác, sửa cả `xu-bay-app/config.js` lẫn khối này.
+- Bản link Claude không có bảng xếp hạng vì trang Claude không được gọi ra dịch vụ bên ngoài.
