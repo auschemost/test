@@ -1,5 +1,10 @@
 -- Chim Bay leaderboard: paste this whole file into Supabase > SQL Editor and run it once.
--- It is safe to run again; it only (re)creates the objects below.
+-- It is safe to run again. If you ran an earlier version of this file, running this one
+-- also removes the old run-checking pieces (start_run, runs, the old submit_score).
+
+drop function if exists public.start_run();
+drop function if exists public.submit_score(uuid, text, int);
+drop table    if exists public.runs;
 
 create table if not exists public.scores (
   name       text primary key check (char_length(name) between 2 and 12),
@@ -7,68 +12,30 @@ create table if not exists public.scores (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.runs (
-  id         uuid primary key default gen_random_uuid(),
-  started_at timestamptz not null default now(),
-  used       boolean not null default false
-);
-
 alter table public.scores enable row level security;
-alter table public.runs   enable row level security;
 
--- Anyone can read the leaderboard. Nobody can write to either table directly:
--- scores only change through submit_score(), and runs are private.
+-- Anyone can read the leaderboard. Nobody can write to the table directly;
+-- scores only change through submit_score() below.
 drop policy if exists "anyone can read scores" on public.scores;
 create policy "anyone can read scores" on public.scores for select to anon using (true);
 
 revoke all on public.scores from anon;
-revoke all on public.runs   from anon;
 grant select on public.scores to anon;
 
--- Called when a run starts. Returns a one-time run id; the server remembers when it was issued.
-create or replace function public.start_run() returns uuid
-language plpgsql security definer set search_path = public as $$
-declare v_id uuid;
-begin
-  delete from runs where started_at < now() - interval '1 day';
-  insert into runs default values returning id into v_id;
-  return v_id;
-end $$;
-
--- Called when a run ends. Accepts the score only if that many points could have been
--- reached in the time since start_run(). A run id works once.
--- Timing (matches the game): first point ~2.56 s after the first flap, then one point
--- every ~1.45 s. 1 s of slack covers network delay. If you change the game's speed or
--- pipe spacing, update the two numbers below.
-create or replace function public.submit_score(p_run uuid, p_name text, p_score int) returns void
+-- The game sends the player's nickname and score here when a run ends.
+-- The score is taken as sent (no cheat checks). Only the nickname length and a sane
+-- score range are enforced, and a player's row is only replaced by a higher score.
+create or replace function public.submit_score(p_name text, p_score int) returns void
 language plpgsql security definer set search_path = public as $$
 declare
-  v_started timestamptz;
-  v_elapsed numeric;
-  v_max     int;
-  v_name    text;
+  v_name text;
 begin
   v_name := btrim(regexp_replace(coalesce(p_name, ''), '\s+', ' ', 'g'));
   if char_length(v_name) < 2 or char_length(v_name) > 12 then
     raise exception 'invalid name';
   end if;
-  if p_score is null or p_score < 0 or p_score > 1000 then
+  if p_score is null or p_score < 0 or p_score > 9999 then
     raise exception 'invalid score';
-  end if;
-
-  update runs set used = true where id = p_run and used = false returning started_at into v_started;
-  if v_started is null then
-    raise exception 'invalid run';
-  end if;
-
-  v_elapsed := extract(epoch from (now() - v_started));
-  if v_elapsed + 1.0 < 2.56 then
-    v_max := 0;
-  else
-    v_max := floor((v_elapsed + 1.0 - 2.56) / 1.449)::int + 1;
-  end if;
-  if p_score > v_max then
-    raise exception 'score not plausible';
   end if;
   if p_score = 0 then
     return;
@@ -79,7 +46,5 @@ begin
   where excluded.score > scores.score;
 end $$;
 
-revoke all on function public.start_run() from public;
-revoke all on function public.submit_score(uuid, text, int) from public;
-grant execute on function public.start_run() to anon;
-grant execute on function public.submit_score(uuid, text, int) to anon;
+revoke all on function public.submit_score(text, int) from public;
+grant execute on function public.submit_score(text, int) to anon;

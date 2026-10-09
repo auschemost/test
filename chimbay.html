@@ -41,7 +41,7 @@ body {
 (function () {
   var W = 360, H = 640, GROUND = 96;
   var cv = document.getElementById("stage"), ctx = cv.getContext("2d");
-  var GRAV = 1500, FLAP = -440, SPEED = 138, GAP = 144, PIPE_W = 64, SPACING = 200;
+  var GRAV = 1500, FLAP = -440, SPEED = 150, GAP = 128, PIPE_W = 64, SPACING = 200;
   var BIRD_X = 96, R = 15;
   var state = "ready", score = 0, best = 0, overAt = 0, shake = 0, justDied = false;
   var bird, pipes, groundX = 0, clouds = [], t = 0;

@@ -86,7 +86,7 @@ body {
 (function () {
   var W = 360, H = 640, GROUND = 96;
   var cv = document.getElementById("stage"), ctx = cv.getContext("2d");
-  var GRAV = 1500, FLAP = -440, SPEED = 138, GAP = 144, PIPE_W = 64, SPACING = 200;
+  var GRAV = 1500, FLAP = -440, SPEED = 150, GAP = 128, PIPE_W = 64, SPACING = 200;
   var BIRD_X = 96, R = 15;
   var state = "ready", score = 0, best = 0, overAt = 0, shake = 0, justDied = false;
   var bird, pipes, groundX = 0, clouds = [], t = 0;
@@ -165,11 +165,11 @@ body {
     return { unlock: unlock, toggle: toggle, isMuted: function () { return muted; } };
   })();
 
-  // Optional leaderboard. Scores go to Supabase through two server functions (start_run, submit_score)
-  // that reject scores which could not have been reached in the time elapsed. Fill in config.js to turn it on.
+  // Optional leaderboard. When a run ends, the game sends the score straight to Supabase (submit_score).
+  // There is no cheat checking by design. Fill in config.js to turn it on.
   var LBC = window.CHIMBAY_LEADERBOARD || {};
   var LB_ON = !!(LBC.url && LBC.key);
-  var lbName = "", lbRunP = null, lbPending = null, lbStatus = "";
+  var lbName = "", lbPending = null, lbStatus = "";
   var lbEl = { box: document.getElementById("lb"), msg: document.getElementById("lbMsg"), list: document.getElementById("lbList"),
     form: document.getElementById("lbForm"), name: document.getElementById("lbName"), close: document.getElementById("lbClose") };
   try { lbName = localStorage.getItem("chimbay-name") || ""; } catch (e) {}
@@ -190,27 +190,20 @@ body {
       });
     }, function (e) { clearTimeout(to); throw e; });
   }
-  function lbStart() {
-    lbPending = null; lbStatus = "";
-    lbRunP = LB_ON ? lbFetch("/rest/v1/rpc/start_run", { method: "POST", body: "{}" }).catch(function () { return null; }) : null;
-  }
-  function lbSubmit(runP, name, sc) {
+  function lbStart() { lbPending = null; lbStatus = ""; }
+  function lbSubmit(name, sc) {
     lbStatus = "Đang gửi điểm…";
-    return Promise.resolve(runP).then(function (id) {
-      if (!id) throw new Error("no run");
-      return lbFetch("/rest/v1/rpc/submit_score", { method: "POST", body: JSON.stringify({ p_run: id, p_name: name, p_score: sc }) });
-    }).then(function () { lbStatus = "Đã gửi lên bảng xếp hạng"; }, function (e) {
-      lbStatus = /plausible/.test(String(e && e.message)) ? "Điểm bị từ chối vì không hợp lý" : "Chưa gửi được điểm";
-    });
+    return lbFetch("/rest/v1/rpc/submit_score", { method: "POST", body: JSON.stringify({ p_name: name, p_score: sc }) })
+      .then(function () { lbStatus = "Đã gửi lên bảng xếp hạng"; }, function () { lbStatus = "Chưa gửi được điểm"; });
   }
   function lbOnDie() {
     if (!LB_ON || score <= 0) { lbStatus = ""; return; }
-    var sc = score, runP = lbRunP;
+    var sc = score;
     if (!lbName) {
-      lbPending = { runP: runP, score: sc };
+      lbPending = { score: sc };
       lbStatus = "Bấm cúp để nhập biệt danh";
       setTimeout(function () { if (state === "over" && lbPending && lbPending.score === sc) lbOpen("name"); }, 600);
-    } else { lbSubmit(runP, lbName, sc); }
+    } else { lbSubmit(lbName, sc); }
   }
   function lbIsOpen() { return !lbEl.box.hidden; }
   function lbRender(rows) {
@@ -248,7 +241,7 @@ body {
     var n = lbEl.name.value.replace(/\s+/g, " ").trim(), len = Array.from(n).length;
     if (len < 2 || len > 12) { lbEl.msg.textContent = "Biệt danh cần từ 2 đến 12 ký tự."; return; }
     lbName = n; try { localStorage.setItem("chimbay-name", n); } catch (err) {}
-    if (lbPending) { var p = lbPending; lbPending = null; lbSubmit(p.runP, n, p.score).then(lbRefresh); }
+    if (lbPending) { var p = lbPending; lbPending = null; lbSubmit(n, p.score).then(lbRefresh); }
     else { lbRefresh().then(function () { lbEl.msg.textContent = "Đã lưu biệt danh."; }); }
   });
 

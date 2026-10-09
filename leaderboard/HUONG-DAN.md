@@ -31,7 +31,7 @@ window.CHIMBAY_LEADERBOARD = { url: "https://xxxx.supabase.co", key: "khoá côn
 Mở link game, chơi một lượt, nhập biệt danh khi game hỏi, rồi bấm biểu tượng cúp. Trong Supabase, mục **Table Editor**, bảng `scores` sẽ có dòng điểm của bạn.
 
 ## Ghi chú
-- Điểm được kiểm tra theo thời gian: máy chủ từ chối điểm không thể đạt được trong khoảng thời gian đã chơi. Cách này chặn điểm giả rõ ràng nhưng không chặn được người cố tình chờ rồi gửi điểm vừa đủ.
-- Nếu đổi tốc độ ống hoặc khoảng cách ống trong game, phải cập nhật hai con số 2.56 và 1.449 trong `setup.sql` rồi chạy lại.
+- Game gửi điểm thẳng lên bảng, không kiểm tra gian lận. Máy chủ chỉ kiểm tra tên dài 2 đến 12 ký tự và điểm từ 0 đến 9999, và chỉ thay điểm của một biệt danh khi điểm mới cao hơn.
+- Nếu trước đó bạn đã chạy bản `setup.sql` cũ (có kiểm tra thời gian), chạy lại file mới này sẽ tự gỡ phần cũ.
 - Xoá dòng không phù hợp: vào **Table Editor**, bảng `scores`, xoá dòng đó.
 - Sau khi sửa `config.js`, có thể cần mở lại game hai lần mới thấy thay đổi, vì trình duyệt lưu bản cũ để chạy ngoại tuyến.
