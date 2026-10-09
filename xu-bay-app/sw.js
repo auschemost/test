@@ -1,5 +1,5 @@
 // Offline support: the game files are cached on first visit; fonts are cached as they are fetched.
-var CACHE = "xubay-v4";
+var CACHE = "xubay-v5";
 var FILES = ["./", "index.html", "config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 
 self.addEventListener("install", function (e) {
