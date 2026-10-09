@@ -1,4 +1,4 @@
--- Chim Bay leaderboard: paste this whole file into Supabase > SQL Editor and run it once.
+-- Xù Bay leaderboard: paste this whole file into Supabase > SQL Editor and run it once.
 -- It is safe to run again. If you ran an earlier version of this file, running this one
 -- also removes the old run-checking pieces (start_run, runs, the old submit_score).
 

@@ -1,10 +1,10 @@
-# Cài bảng xếp hạng cho Chim Bay (Supabase)
+# Cài bảng xếp hạng cho Xù Bay (Supabase)
 
 Tên menu của Supabase có thể thay đổi theo thời gian. Nếu không thấy đúng tên, hãy tìm mục có ý nghĩa tương tự.
 
 ## 1. Tạo dự án
 1. Vào supabase.com, đăng ký (có thể dùng tài khoản GitHub).
-2. Bấm **New project**, đặt tên (ví dụ `chim-bay`), tạo mật khẩu cơ sở dữ liệu và **lưu lại ở nơi an toàn**. Chọn vùng gần Việt Nam (ví dụ Singapore). Chờ vài phút để dự án khởi tạo.
+2. Bấm **New project**, đặt tên (ví dụ `xu-bay`), tạo mật khẩu cơ sở dữ liệu và **lưu lại ở nơi an toàn**. Chọn vùng gần Việt Nam (ví dụ Singapore). Chờ vài phút để dự án khởi tạo.
 
 ## 2. Tạo bảng và hàm kiểm tra điểm
 1. Mở **SQL Editor**, tạo truy vấn mới.
@@ -17,15 +17,15 @@ Tên menu của Supabase có thể thay đổi theo thời gian. Nếu không th
 3. Tuyệt đối **không** dùng khoá `service_role` hoặc `secret`, và không gửi mật khẩu cơ sở dữ liệu cho ai.
 
 ## 4. Dán vào game
-Mở file `chim-bay-app/config.js` và điền:
+Mở file `xu-bay-app/config.js` và điền:
 
 ```js
 window.CHIMBAY_LEADERBOARD = { url: "https://xxxx.supabase.co", key: "khoá công khai ở bước 3" };
 ```
 
 ## 5. Đưa game lên mạng
-- GitHub Pages: đổi repo sang công khai, vào Settings, Pages, chọn nhánh `master`, thư mục gốc. Game ở `.../chim-bay-app/`.
-- Hoặc Netlify / Cloudflare Pages: tải thư mục `chim-bay-app` lên.
+- GitHub Pages: đổi repo sang công khai, vào Settings, Pages, chọn nhánh `master`, thư mục gốc. Game ở `.../xu-bay-app/`.
+- Hoặc Netlify / Cloudflare Pages: tải thư mục `xu-bay-app` lên.
 
 ## 6. Kiểm tra
 Mở link game, chơi một lượt, nhập biệt danh khi game hỏi, rồi bấm biểu tượng cúp. Trong Supabase, mục **Table Editor**, bảng `scores` sẽ có dòng điểm của bạn.
