@@ -43,7 +43,7 @@ body {
   var cv = document.getElementById("stage"), ctx = cv.getContext("2d");
   var GRAV = 1500, FLAP = -440, SPEED = 138, GAP = 144, PIPE_W = 64, SPACING = 200;
   var BIRD_X = 96, R = 15;
-  var state = "ready", score = 0, best = 0, overAt = 0, shake = 0;
+  var state = "ready", score = 0, best = 0, overAt = 0, shake = 0, justDied = false;
   var bird, pipes, groundX = 0, clouds = [], t = 0;
 
   try { best = parseInt(localStorage.getItem("chimbay-best"), 10) || 0; } catch (e) {}
@@ -149,8 +149,13 @@ body {
     pipes.push({ x: W + 10, top: min + Math.random() * (max - min), scored: false });
   }
 
+  // die() may be reached twice in one frame (pipe and ground). It only flags the end of the run;
+  // the best score is settled once per run in frame(), after update() has finished adding points.
   function die() {
-    state = "over"; overAt = performance.now(); shake = 0.25;
+    if (state === "over") return;
+    state = "over"; overAt = performance.now(); shake = 0.25; justDied = true;
+  }
+  function settleRun() {
     if (score > best) { best = score; try { localStorage.setItem("chimbay-best", String(best)); } catch (e) {} }
   }
 
@@ -174,6 +179,7 @@ body {
       bird.rot = Math.max(-0.45, Math.min(1.3, bird.vy / 520));
       if (!pipes.length || pipes[pipes.length - 1].x < W - SPACING) spawn();
       for (var i = pipes.length - 1; i >= 0; i--) {
+        if (state !== "play") break;
         var p = pipes[i]; p.x -= SPEED * dt;
         if (!p.scored && p.x + PIPE_W < BIRD_X - R) { p.scored = true; score++; }
         if (p.x + PIPE_W < -4) pipes.splice(i, 1);
@@ -288,7 +294,9 @@ body {
   function frame(now) {
     if (!last) last = now;
     var dt = Math.min(0.033, (now - last) / 1000); last = now;
-    update(dt); draw();
+    update(dt);
+    if (justDied) { justDied = false; settleRun(); }
+    draw();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
