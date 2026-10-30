@@ -20,14 +20,37 @@
 <meta name="twitter:description" content="Chạm để vỗ cánh, bay qua ống cùng Xù! Có bảng xếp hạng cho cả nhóm.">
 <meta name="twitter:image" content="https://auschemost.github.io/test/assets/og-image.jpg">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Xù Bay">
 <style>
 html { color-scheme: dark; }
-body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0e2433; color: #eaf4fa; font-family: "Trebuchet MS", system-ui, sans-serif; text-align: center; }
-a { color: #ffd23f; font-size: 1.25rem; }
+body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0e2433; color: #eaf4fa; font-family: "Trebuchet MS", system-ui, sans-serif; text-align: center; padding: 16px; box-sizing: border-box; }
+img { width: 120px; height: 120px; border-radius: 26px; }
+h1 { margin: 16px 0 8px; font-size: 2rem; }
+a.play { display: inline-block; margin-top: 16px; padding: 14px 32px; border-radius: 16px; background: #ffd23f; color: #0e2433; font-weight: 700; font-size: 1.3rem; text-decoration: none; }
+p { margin: 8px 0; color: #8fb0c4; }
+[hidden] { display: none !important; }
 </style>
 </head>
 <body>
-<p>Đang mở game Xù Bay...<br><a id="go" href="https://script.google.com/macros/s/AKfycbwtz266_I51KiX2N_x6fm5bxsvr_hwDlKpe4YFlOduyRjsDKkNYk5guggU4ggS3UE96/exec">Bấm vào đây nếu game chưa tự mở</a></p>
-<script>location.replace(document.getElementById("go").href);</script>
+<div id="redirect"><p>Đang mở game Xù Bay...<br><a id="go" href="https://script.google.com/macros/s/AKfycbwtz266_I51KiX2N_x6fm5bxsvr_hwDlKpe4YFlOduyRjsDKkNYk5guggU4ggS3UE96/exec" style="color:#ffd23f">Bấm vào đây nếu game chưa tự mở</a></p></div>
+<div id="landing" hidden>
+<img src="assets/apple-touch-icon.png" alt="Xù Bay">
+<h1>Xù Bay</h1>
+<p>Chạm để vỗ cánh, bay qua ống cùng Xù!</p>
+<a class="play" id="play" href="#">Chơi ngay</a>
+<p>Muốn có biểu tượng trên màn hình chính? Bấm nút Chia sẻ của Safari, chọn "Thêm vào Màn hình chính".</p>
+</div>
+<script>
+var url = document.getElementById("go").href;
+// Mở link thường thì chuyển thẳng sang game. Thêm ?cai vào link để xem trang này và thêm biểu tượng vào màn hình chính.
+if (/[?&]cai\b/.test(location.search) && !window.navigator.standalone) {
+  document.getElementById("redirect").hidden = true;
+  document.getElementById("landing").hidden = false;
+  document.getElementById("play").href = url;
+} else {
+  location.replace(url);
+}
+</script>
 </body>
 </html>
