@@ -17,15 +17,14 @@ Tên menu của Supabase có thể thay đổi theo thời gian. Nếu không th
 3. Tuyệt đối **không** dùng khoá `service_role` hoặc `secret`, và không gửi mật khẩu cơ sở dữ liệu cho ai.
 
 ## 4. Dán vào game
-Mở file `xu-bay-app/config.js` và điền:
+Game nằm trong file `apps-script/Game.html`. Tìm khối `window.CHIMBAY_LEADERBOARD` gần đầu file và điền:
 
 ```js
 window.CHIMBAY_LEADERBOARD = { url: "https://xxxx.supabase.co", key: "khoá công khai ở bước 3" };
 ```
 
 ## 5. Đưa game lên mạng
-- GitHub Pages: đổi repo sang công khai, vào Settings, Pages, chọn nhánh `master`, thư mục gốc. Game ở `.../xu-bay-app/`.
-- Hoặc Netlify / Cloudflare Pages: tải thư mục `xu-bay-app` lên.
+Game chạy bằng Google Apps Script: dán `apps-script/Code.gs` và `apps-script/Game.html` vào một dự án mới, rồi Deploy > New deployment > Web app (Execute as: Me, Who has access: Anyone). Trang `choi.html` trên GitHub Pages chỉ có hình xem trước khi chia sẻ link, rồi chuyển người chơi sang link Apps Script (nhớ sửa địa chỉ trong trang này nếu đổi link).
 
 ## 6. Kiểm tra
 Mở link game, chơi một lượt, nhập biệt danh khi game hỏi, rồi bấm biểu tượng cúp. Trong Supabase, mục **Table Editor**, bảng `scores` sẽ có dòng điểm của bạn.
@@ -34,6 +33,5 @@ Mở link game, chơi một lượt, nhập biệt danh khi game hỏi, rồi b�
 - Game gửi điểm thẳng lên bảng, không kiểm tra gian lận. Máy chủ chỉ kiểm tra tên dài 2 đến 12 ký tự và điểm từ 0 đến 9999, và chỉ thay điểm của một biệt danh khi điểm mới cao hơn.
 - Nếu trước đó bạn đã chạy bản `setup.sql` cũ (có kiểm tra thời gian), chạy lại file mới này sẽ tự gỡ phần cũ.
 - Xoá dòng không phù hợp: vào **Table Editor**, bảng `scores`, xoá dòng đó.
-- Sau khi sửa `config.js`, có thể cần mở lại game hai lần mới thấy thay đổi, vì trình duyệt lưu bản cũ để chạy ngoại tuyến.
-- File độc lập `xubay.html` cũng có bảng xếp hạng, dùng chung một bảng điểm với ứng dụng. Địa chỉ và khoá nằm ngay trong khối `window.CHIMBAY_LEADERBOARD` gần đầu file. Nếu đổi sang dự án Supabase khác, sửa cả `xu-bay-app/config.js` lẫn khối này.
-- Bản link Claude không có bảng xếp hạng vì trang Claude không được gọi ra dịch vụ bên ngoài.
+- Sau khi sửa game, vào **Deploy > Manage deployments**, chọn bút chì, chọn **New version** rồi **Deploy** để giữ nguyên link cũ.
+- Tác vụ `.github/workflows/supabase-keepalive.yml` đọc bảng điểm mỗi 3 ngày để Supabase gói miễn phí không bị tạm dừng. Nếu đổi sang dự án Supabase khác, sửa địa chỉ và khoá trong file này.
