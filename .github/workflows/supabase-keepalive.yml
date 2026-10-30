@@ -1,7 +1,7 @@
 name: Giữ Supabase hoạt động
 
 # Dự án Supabase gói miễn phí bị tạm dừng nếu ít hoạt động trong 7 ngày.
-# Tác vụ này đọc bảng xếp hạng vài ngày một lần để dự án luôn có hoạt động.
+# Khóa bên dưới là khóa công khai (publishable), cùng khóa nằm trong game. Tác vụ này đọc bảng xếp hạng vài ngày một lần để dự án luôn có hoạt động.
 # Nếu lần gọi thất bại (ví dụ dự án đã bị tạm dừng), tác vụ báo lỗi và GitHub gửi email cho bạn.
 
 on:
@@ -17,15 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: xu-bay-app/config.js
-          sparse-checkout-cone-mode: false
       - name: Đọc bảng xếp hạng
         run: |
-          url=$(grep -o 'url: *"[^"]*"' xu-bay-app/config.js | sed 's/.*"\(.*\)"/\1/')
-          key=$(grep -o 'key: *"[^"]*"' xu-bay-app/config.js | sed 's/.*"\(.*\)"/\1/')
-          [ -n "$url" ] && [ -n "$key" ] || { echo "Không đọc được url hoặc key từ config.js"; exit 1; }
+          url="https://hufurknrilinkskvkkjo.supabase.co"
+          key="sb_publishable_2dSwQAHS7F3xSHhfZL9WLg_pqCCx5UK"
           code=$(curl -sS -o body.json -w '%{http_code}' --retry 3 --retry-delay 10 --max-time 30 \
             -H "apikey: $key" "$url/rest/v1/scores?select=name,score&order=score.desc&limit=1")
           echo "HTTP $code"
